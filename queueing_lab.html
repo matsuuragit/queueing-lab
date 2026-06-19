@@ -1,0 +1,601 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>待ち行列ラボ — 動く待ち行列</title>
+<style>
+:root{
+  --ink:#0b0e1d;--ink2:#10142a;--surface:#161b38;--surface2:#1c2347;
+  --line:#2a3266;--line-soft:#1f2647;--txt:#e9ecff;--muted:#8a92c4;--faint:#5b639c;
+  --amber:#ffb347;--amber-deep:#ff8c2e;--cyan:#42e2d0;--cyan-deep:#1fbfb0;
+  --coral:#ff5d6c;--violet:#9d8bff;--green:#5fe39a;--grid:rgba(120,140,230,.06);
+  --mono:ui-monospace,"SF Mono","Cascadia Code","Roboto Mono",Consolas,monospace;
+  --sans:"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP","Yu Gothic UI","Yu Gothic",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ink);color:var(--txt);font-family:var(--sans);line-height:1.6;
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:42px 42px;}
+.wrap{max-width:1180px;margin:0 auto;padding:clamp(16px,4vw,38px) clamp(14px,4vw,38px) 90px}
+header{margin-bottom:22px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.34em;text-transform:uppercase;color:var(--cyan);
+  display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.eyebrow::before{content:"";width:34px;height:1px;background:var(--cyan);opacity:.7}
+h1{font-size:clamp(26px,5.4vw,46px);line-height:1.05;margin:0 0 10px;font-weight:800;letter-spacing:-.02em}
+h1 .en{display:block;font-family:var(--mono);font-weight:500;font-size:clamp(12px,2.2vw,15px);
+  letter-spacing:.18em;color:var(--muted);margin-top:8px;text-transform:uppercase}
+.thesis{max-width:660px;color:var(--muted);font-size:clamp(13.5px,2.1vw,15.5px)}
+.thesis b{color:var(--txt);font-weight:700}
+.little{display:inline-flex;align-items:center;gap:10px;margin-top:14px;padding:8px 15px;border:1px solid var(--line);
+  border-radius:999px;background:var(--ink2);font-family:var(--mono);font-size:13.5px}
+.little .eq{color:var(--amber);font-weight:700}
+.little .lbl{color:var(--faint);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+
+.models{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:24px 0 18px}
+.mbtn{appearance:none;cursor:pointer;background:var(--ink2);border:1px solid var(--line-soft);border-radius:12px;
+  padding:12px 9px 11px;color:var(--muted);text-align:left;transition:.16s;font-family:inherit}
+.mbtn:hover{border-color:var(--line);color:var(--txt);transform:translateY(-2px)}
+.mbtn .code{font-family:var(--mono);font-size:15px;font-weight:700;display:block;color:var(--txt)}
+.mbtn .nm{font-size:11px;display:block;margin-top:3px;line-height:1.35}
+.mbtn[aria-selected="true"]{background:linear-gradient(160deg,var(--surface2),var(--surface));border-color:var(--cyan-deep);
+  box-shadow:0 0 0 1px var(--cyan-deep),0 10px 30px -16px var(--cyan)}
+.mbtn[aria-selected="true"] .code{color:var(--cyan)}
+.mbtn:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+.grid{display:grid;grid-template-columns:280px 1fr;gap:16px;align-items:start}
+.panel{background:var(--ink2);border:1px solid var(--line-soft);border-radius:16px;padding:18px}
+.panel h2{font-size:12px;font-family:var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--faint);
+  margin:0 0 14px;font-weight:600}
+.ctrl{margin-bottom:16px}.ctrl.hide{display:none}
+.ctrl .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px}
+.ctrl label{font-size:13.5px}
+.ctrl label .sym{font-family:var(--mono);color:var(--cyan);font-weight:700;margin-right:6px;font-size:14px}
+.ctrl .val{font-family:var(--mono);font-size:14px;color:var(--amber);font-weight:700}
+.ctrl .hint{font-size:11px;color:var(--faint);margin-top:5px;line-height:1.45}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:5px;border-radius:5px;
+  background:linear-gradient(90deg,var(--cyan-deep),var(--cyan));outline:none;margin:2px 0}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;
+  background:var(--txt);border:3px solid var(--cyan-deep);cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--txt);border:3px solid var(--cyan-deep);cursor:pointer}
+input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 4px rgba(255,179,71,.4)}
+.formula{margin-top:4px;padding:14px;background:var(--surface);border:1px solid var(--line-soft);border-radius:12px}
+.formula .ttl{font-size:10.5px;font-family:var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin-bottom:9px}
+.formula .fx{font-family:var(--mono);font-size:13.5px;line-height:2;color:var(--txt)}
+.formula .fx .hl{color:var(--amber);font-weight:700}
+.formula sub,.formula sup{font-size:.72em}
+.formula .note{font-size:11.5px;color:var(--muted);margin-top:9px;line-height:1.5;font-family:var(--sans)}
+
+/* stage */
+.stagewrap{background:var(--ink2);border:1px solid var(--line-soft);border-radius:16px;padding:16px;position:relative}
+.stagewrap .bar{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.simctrl{display:flex;gap:7px}
+.simctrl button{font-family:var(--mono);font-size:13px;background:var(--surface2);color:var(--txt);border:1px solid var(--line);
+  border-radius:9px;padding:8px 14px;cursor:pointer;transition:.15s}
+.simctrl button:hover{border-color:var(--cyan-deep);color:var(--cyan)}
+.simctrl button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.speed{display:flex;gap:3px;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:3px}
+.speed button{border:none;background:transparent;color:var(--muted);font-family:var(--mono);font-size:12px;padding:5px 9px;border-radius:6px;cursor:pointer}
+.speed button.on{background:var(--cyan-deep);color:#05201d;font-weight:700}
+.legend{display:flex;gap:13px;margin-left:auto;font-size:11.5px;color:var(--muted);flex-wrap:wrap}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle}
+canvas{width:100%;display:block;border-radius:12px;background:linear-gradient(180deg,#0e1228,#0a0d1c);border:1px solid var(--line-soft);touch-action:none}
+
+.chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:9px;margin-top:14px}
+.chip{background:var(--surface);border:1px solid var(--line-soft);border-radius:11px;padding:11px 13px;position:relative;overflow:hidden}
+.chip::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cyan)}
+.chip.amber::after{background:var(--amber)}.chip.violet::after{background:var(--violet)}.chip.coral::after{background:var(--coral)}
+.chip .k{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-bottom:5px;display:flex;gap:5px;align-items:baseline}
+.chip .k .sub{color:var(--faint);font-size:9.5px}
+.chip .v{font-family:var(--mono);font-size:21px;font-weight:700;line-height:1}
+.chip .u{font-size:10px;color:var(--faint);margin-top:4px}
+.chip.over .v{color:var(--coral)}
+.conv{margin-top:12px;font-size:12.5px;color:var(--muted);background:var(--surface);border-radius:10px;padding:11px 14px;border:1px solid var(--line-soft)}
+.conv b{color:var(--cyan)}
+
+.graphs{margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.chart{background:var(--ink2);border:1px solid var(--line-soft);border-radius:16px;padding:18px}
+.chart.wide{grid-column:1/-1}
+.chart .ch{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px}
+.chart h3{margin:0;font-size:12px;font-family:var(--mono);letter-spacing:.13em;text-transform:uppercase;color:var(--faint);font-weight:600}
+.chart .cap{font-size:11.5px;color:var(--muted);margin-top:9px;line-height:1.5}
+.chart .cap b{color:var(--txt)}
+.metsel{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:3px}
+.metsel button{border:none;background:transparent;color:var(--muted);font-family:var(--mono);font-size:12px;padding:5px 10px;border-radius:6px;cursor:pointer}
+.metsel button.on{background:var(--amber);color:#241502;font-weight:700}
+.metsel button:focus-visible{outline:2px solid var(--cyan);outline-offset:1px}
+.chart svg{width:100%;height:auto;display:block}
+@media(max-width:880px){.graphs{grid-template-columns:1fr}}
+
+.tablewrap{margin-top:40px}
+.tablewrap h2{font-size:clamp(17px,3vw,23px);margin:0 0 6px;letter-spacing:-.01em}
+.tablewrap .sub{color:var(--muted);font-size:13.5px;margin-bottom:16px}
+.scroll{overflow-x:auto;border:1px solid var(--line-soft);border-radius:16px}
+table{border-collapse:collapse;width:100%;min-width:740px;font-size:13px}
+thead th{background:var(--surface2);text-align:left;padding:12px 15px;font-family:var(--mono);font-size:10.5px;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--cyan);font-weight:600;border-bottom:1px solid var(--line);white-space:nowrap}
+tbody td{padding:13px 15px;border-bottom:1px solid var(--line-soft);vertical-align:top;color:var(--muted)}
+tbody tr:last-child td{border-bottom:none}tbody tr:hover{background:rgba(120,140,230,.04)}
+tbody .code{font-family:var(--mono);font-weight:700;color:var(--txt);font-size:13.5px;white-space:nowrap}
+tbody td.f{font-family:var(--mono);color:var(--amber);font-size:12px;white-space:nowrap}
+tbody td.f sub,tbody td.f sup{font-size:.74em}
+.namecell strong{color:var(--txt);display:block;font-size:13px;margin-bottom:2px}
+footer{margin-top:42px;padding-top:18px;border-top:1px solid var(--line-soft);color:var(--faint);font-size:12px;
+  display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;font-family:var(--mono)}
+@media(max-width:980px){.models{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:880px){.grid{grid-template-columns:1fr}.models{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="eyebrow">Queueing Theory · 待ち行列理論</div>
+  <h1>動く待ち行列ラボ<span class="en">watch tasks · windows · players in motion</span></h1>
+  <p class="thesis"><b>プレイヤー</b>（客）が到着して並び、<b>窓口</b>で<b>タスク</b>が処理されて出ていく。
+  スライダーを動かすと混み具合が変わり、実測平均が理論値 <b>L</b> に近づいていきます。</p>
+  <div class="little"><span class="lbl">貫く原理</span><span class="eq">L = λW</span><span class="lbl">リトルの法則</span></div>
+</header>
+
+<div class="models" role="tablist" aria-label="モデル">
+  <button class="mbtn" role="tab" data-model="mm1" aria-selected="true"><span class="code">M/M/1</span><span class="nm">単一窓口・待ち室無限</span></button>
+  <button class="mbtn" role="tab" data-model="mmc" aria-selected="false"><span class="code">M/M/c</span><span class="nm">並列c窓口（アーランC）</span></button>
+  <button class="mbtn" role="tab" data-model="mm1k" aria-selected="false"><span class="code">M/M/1/K</span><span class="nm">待ち室有限・あふれ</span></button>
+  <button class="mbtn" role="tab" data-model="mmcc" aria-selected="false"><span class="code">M/M/c/c</span><span class="nm">即時式・呼損（アーランB）</span></button>
+  <button class="mbtn" role="tab" data-model="mg1" aria-selected="false"><span class="code">M/G/1</span><span class="nm">一般分布（P–K公式）</span></button>
+  <button class="mbtn" role="tab" data-model="mdc" aria-selected="false"><span class="code">M/D/c</span><span class="nm">一定サービス・c窓口</span></button>
+</div>
+
+<div class="grid">
+  <div class="panel">
+    <h2>パラメータ</h2>
+    <div class="ctrl" id="c-lambda"><div class="top"><label><span class="sym">λ</span>到着率</label><span class="val" id="v-lambda">0.80</span></div>
+      <input type="range" id="lambda" min="0.05" max="3" step="0.05" value="0.8"><div class="hint">単位時間あたり来る客の平均数</div></div>
+    <div class="ctrl" id="c-mu"><div class="top"><label><span class="sym">μ</span>サービス率</label><span class="val" id="v-mu">1.00</span></div>
+      <input type="range" id="mu" min="0.2" max="3" step="0.05" value="1"><div class="hint">窓口1個がさばける速さ。1/μ=平均処理時間</div></div>
+    <div class="ctrl hide" id="c-c"><div class="top"><label><span class="sym">c</span>窓口数</label><span class="val" id="v-c">2</span></div>
+      <input type="range" id="cc" min="1" max="6" step="1" value="2"><div class="hint">並列に働く窓口の数</div></div>
+    <div class="ctrl hide" id="c-K"><div class="top"><label><span class="sym">K</span>容量</label><span class="val" id="v-K">6</span></div>
+      <input type="range" id="KK" min="1" max="16" step="1" value="6"><div class="hint">系内の最大人数。満杯なら拒否（損失）</div></div>
+    <div class="ctrl hide" id="c-cs2"><div class="top"><label><span class="sym">Cs²</span>サービス変動</label><span class="val" id="v-cs2">1.00</span></div>
+      <input type="range" id="cs2" min="0" max="4" step="0.1" value="1"><div class="hint">0=一定(M/D/1)、1=指数(M/M/1)</div></div>
+    <div class="formula" id="formula"></div>
+  </div>
+
+  <div class="stagewrap">
+    <div class="bar">
+      <div class="simctrl"><button id="btnPlay">▶ 再生</button><button id="btnReset">↺ リセット</button></div>
+      <div class="speed" id="speed"><button data-s="1">×1</button><button data-s="2" class="on">×2</button><button data-s="4">×4</button></div>
+      <div class="legend">
+        <span><i style="background:var(--cyan)"></i>待機</span>
+        <span><i style="background:var(--amber)"></i>処理中</span>
+        <span><i style="background:var(--green)"></i>完了</span>
+        <span><i style="background:var(--coral)"></i>拒否</span>
+      </div>
+    </div>
+    <canvas id="cv"></canvas>
+    <div class="chips" id="chips"></div>
+    <div class="conv" id="conv">▶ 再生すると、ランダムな到着から行列ができ、実測 L が理論値へ近づきます。</div>
+  </div>
+</div>
+
+<div class="graphs">
+  <div class="chart">
+    <div class="ch"><h3 id="respTitle">応答曲線</h3><div class="metsel" id="metsel"></div></div>
+    <div id="respSvg"></div>
+    <div class="cap" id="respCap"></div>
+  </div>
+  <div class="chart">
+    <div class="ch"><h3 id="distTitle">系内人数の分布 Pₙ</h3></div>
+    <div id="distSvg"></div>
+    <div class="cap" id="distCap"></div>
+  </div>
+  <div class="chart wide">
+    <div class="ch"><h3>実測 L(t) の収束</h3>
+      <span style="font-size:11.5px;color:var(--muted)"><b style="color:var(--cyan)">━</b> 実測（時間平均）　<b style="color:var(--amber)">┅</b> 理論 L</span></div>
+    <div id="convSvg"></div>
+    <div class="cap">再生中、ランダムな到着から計算した時間平均 L が、理論値（破線）に向かって落ち着いていきます。これが <b>L = λW</b>。</div>
+  </div>
+</div>
+
+<div class="tablewrap">
+  <h2>5つの代表的手法 — 比較表</h2>
+  <p class="sub">ケンドール記法 A/B/c/K：到着 / サービス / 窓口数 / 容量。M=指数、G=一般、D=一定。</p>
+  <div class="scroll"><table>
+    <thead><tr><th>モデル</th><th>名称・特徴</th><th>主パラメータ</th><th>代表公式</th><th>典型的な用途</th></tr></thead>
+    <tbody>
+      <tr><td class="code">M/M/1</td><td class="namecell"><strong>単一窓口・無限待ち</strong>ポアソン到着＋指数サービス。すべての基礎。安定条件 ρ&lt;1。</td><td>λ, μ</td><td class="f">L = ρ/(1−ρ)</td><td>1台のプリンタ、単一CPU、1人レジ</td></tr>
+      <tr><td class="code">M/M/c</td><td class="namecell"><strong>並列c窓口（アーランC）</strong>共通の行列に窓口c個。待ち確率はアーランC式。増設効果を評価。</td><td>λ, μ, c</td><td class="f">L<sub>q</sub> = C(c,a)·ρ/(1−ρ)</td><td>コールセンター、銀行窓口、サーバ群</td></tr>
+      <tr><td class="code">M/M/1/K</td><td class="namecell"><strong>有限容量・損失あり</strong>待ち室K人分。満杯なら拒否。あふれ確率 P<sub>K</sub> を設計。</td><td>λ, μ, K</td><td class="f">P<sub>n</sub> = (1−ρ)ρ<sup>n</sup>/(1−ρ<sup>K+1</sup>)</td><td>ルータのバッファ、待合室、受付枠</td></tr>
+      <tr><td class="code">M/M/c/c</td><td class="namecell"><strong>即時式・呼損（アーランB）</strong>待ち室ゼロ。空き窓口が無ければ即拒否。回線設計の古典。</td><td>λ, μ, c</td><td class="f">B = (a<sup>c</sup>/c!) ⁄ Σ a<sup>k</sup>/k!</td><td>電話回線数、駐車場台数、同時接続枠</td></tr>
+      <tr><td class="code">M/G/1</td><td class="namecell"><strong>一般サービス分布</strong>サービス時間が指数でなくてOK。P–H式が変動の影響を示す。</td><td>λ, μ, C<sub>s</sub>²</td><td class="f">L<sub>q</sub> = ρ²(1+C<sub>s</sub>²)/(2(1−ρ))</td><td>ばらつく処理、固定長処理、保守時間</td></tr>
+      <tr><td class="code">M/D/c</td><td class="namecell"><strong>一定サービス・c窓口</strong>処理時間が毎回一定（D）。ばらつきゼロで待ちは指数の約半分。c=1は厳密、c≥2は近似。</td><td>λ, μ, c</td><td class="f">L<sub>q</sub> ≈ ½ · L<sub>q</sub><sup>(M/M/c)</sup></td><td>自動機械、定時処理、信号機、ベルトライン</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<footer><span>QUEUEING THEORY LAB · オフライン動作</span><span>解析解 + 離散事象シミュレーション</span></footer>
+</div>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const fact=n=>{let r=1;for(let i=2;i<=n;i++)r*=i;return r;};
+const fmt=(x,d=2)=>!isFinite(x)?"∞":(x>=1e5?x.toExponential(1):x.toFixed(d));
+const lerp=(a,b,t)=>a+(b-a)*t;
+
+/* ===== analytic compute (verified) ===== */
+function mc(k,sub,v,u,flag,cls){return{k,sub,v,u,over:flag===true,cls:cls||""};}
+function compute(model,p){
+  const{lambda:l,mu:m,c,K,cs2}=p;
+  if(model==="mm1"){const rho=l/m,stable=rho<1;
+    const L=stable?rho/(1-rho):Infinity,Lq=stable?rho*rho/(1-rho):Infinity,W=stable?1/(m-l):Infinity,Wq=stable?rho/(m-l):Infinity,P0=1-rho;
+    return{rho,stable,L,Lq,W,Wq,metrics:[mc("ρ","利用率",rho,"",rho>=1),mc("L","系内人数",L,"人",1,"cyan"),mc("L_q","行列人数",Lq,"人"),mc("W","系内時間",W,"単位","amber"),mc("W_q","待ち時間",Wq,"単位","amber"),mc("P₀","空き確率",P0,"")]};}
+  if(model==="mmc"){const a=l/m,rr=a/c,stable=rr<1;let s=0;for(let n=0;n<c;n++)s+=Math.pow(a,n)/fact(n);
+    const last=Math.pow(a,c)/fact(c)*(stable?1/(1-rr):Infinity),P0=stable?1/(s+last):0,Pwait=stable?last*P0:1;
+    const Lq=stable?Pwait*rr/(1-rr):Infinity,L=stable?Lq+a:Infinity,Wq=stable?Lq/l:Infinity,W=stable?Wq+1/m:Infinity;
+    return{rho:rr,stable,L,Lq,W,Wq,metrics:[mc("ρ","窓口利用率",rr,"",rr>=1),mc("L","系内人数",L,"人","cyan"),mc("L_q","行列人数",Lq,"人"),mc("W","系内時間",W,"単位","amber"),mc("W_q","待ち時間",Wq,"単位","amber"),mc("P_w","待ち確率(C)",Pwait,"","violet")]};}
+  if(model==="mm1k"){const rho=l/m;let P0,L,Pn=[];
+    if(Math.abs(rho-1)<1e-9){P0=1/(K+1);for(let n=0;n<=K;n++)Pn[n]=1/(K+1);L=K/2;}
+    else{P0=(1-rho)/(1-Math.pow(rho,K+1));for(let n=0;n<=K;n++)Pn[n]=P0*Math.pow(rho,n);L=rho*(1-(K+1)*Math.pow(rho,K)+K*Math.pow(rho,K+1))/((1-rho)*(1-Math.pow(rho,K+1)));}
+    const PK=Pn[K],leff=l*(1-PK),Lq=L-(1-P0),W=L/leff,Wq=Lq/leff;
+    return{rho,stable:true,L,Lq,W,Wq,PK,leff,metrics:[mc("ρ","負荷",rho,""),mc("L","系内人数",L,"人","cyan"),mc("L_q","行列人数",Lq,"人"),mc("P_K","あふれ確率",PK,"","coral"),mc("λ_eff","実効到着",leff,"/単位","violet"),mc("W","系内時間",W,"単位","amber")]};}
+  if(model==="mmcc"){const a=l/m;let B=1;for(let n=1;n<=c;n++)B=a*B/(n+a*B);const L=a*(1-B),leff=l*(1-B);
+    return{rho:a/c,stable:true,L,Lq:0,W:1/m,Wq:0,B,leff,metrics:[mc("a","負荷(アーラン)",a,"E","violet"),mc("B","呼損率",B,"","coral"),mc("L","使用中窓口",L,"台","cyan"),mc("λ_eff","成立呼",leff,"/単位"),mc("W","系内時間",1/m,"単位","amber"),mc("L_q","行列人数",0,"人")]};}
+  if(model==="mg1"){const rho=l/m,stable=rho<1;const Lq=stable?rho*rho*(1+cs2)/(2*(1-rho)):Infinity;
+    const L=stable?rho+Lq:Infinity,Wq=stable?Lq/l:Infinity,W=stable?Wq+1/m:Infinity;
+    return{rho,stable,L,Lq,W,Wq,cs2,metrics:[mc("ρ","利用率",rho,"",rho>=1),mc("L","系内人数",L,"人","cyan"),mc("L_q","行列人数",Lq,"人"),mc("W","系内時間",W,"単位","amber"),mc("W_q","待ち時間",Wq,"単位","amber"),mc("Cs²","変動係数²",cs2,"","violet")]};}
+  if(model==="mdc"){const a=l/m,rr=a/c,stable=rr<1;let LqM;
+    if(!stable)LqM=Infinity;else{let s=0;for(let n=0;n<c;n++)s+=Math.pow(a,n)/fact(n);const last=Math.pow(a,c)/fact(c)/(1-rr);const P0=1/(s+last);LqM=last*P0*rr/(1-rr);}
+    const Lq=stable?0.5*LqM:Infinity,L=stable?Lq+a:Infinity,Wq=stable?Lq/l:Infinity,W=stable?Wq+1/m:Infinity;
+    return{rho:rr,stable,L,Lq,W,Wq,approx:c>1,metrics:[mc("ρ","窓口利用率",rr,"",rr>=1),mc("L","系内人数",L,"人","cyan"),mc("L_q","行列人数",Lq,"人"),mc("W","系内時間",W,"単位","amber"),mc("W_q","待ち時間",Wq,"単位","amber"),mc("a","負荷(アーラン)",a,"E","violet")]};}
+}
+function formulaHTML(model,r){const fx={
+  mm1:`<div class="ttl">M/M/1 · 適用式</div><div class="fx">ρ = λ/μ ( = ${fmt(r.rho)} )<br><span class="hl">L</span> = ρ/(1−ρ) &nbsp; L<sub>q</sub> = ρ²/(1−ρ)<br>W = 1/(μ−λ) &nbsp; W<sub>q</sub> = ρ/(μ−λ)</div><div class="note">安定条件は <b>ρ&lt;1</b>。超えると行列は無限に発散します。</div>`,
+  mmc:`<div class="ttl">M/M/c · アーランC</div><div class="fx">a = λ/μ &nbsp; ρ = a/c ( = ${fmt(r.rho)} )<br><span class="hl">L<sub>q</sub></span> = C(c,a)·ρ/(1−ρ)<br>L = L<sub>q</sub> + a</div><div class="note">窓口 c を増やすと ρ=a/c が下がり、待ちが急減。<b>規模の経済</b>。</div>`,
+  mm1k:`<div class="ttl">M/M/1/K · 有限容量</div><div class="fx"><span class="hl">P<sub>n</sub></span> = (1−ρ)ρ<sup>n</sup>/(1−ρ<sup>K+1</sup>)<br>λ<sub>eff</sub> = λ(1−P<sub>K</sub>)<br>W = L/λ<sub>eff</sub></div><div class="note">容量有限なので <b>ρ≥1 でも発散しません</b>。代わりに一部を失います。</div>`,
+  mmcc:`<div class="ttl">M/M/c/c · アーランB</div><div class="fx">a = λ/μ<br><span class="hl">B</span> = (a<sup>c</sup>/c!) / Σ a<sup>k</sup>/k!<br>B(n)=a·B(n−1)/(n+a·B(n−1))</div><div class="note">待ち室ゼロ。空きが無ければ即<b>呼損</b>。電話交換の古典。</div>`,
+  mg1:`<div class="ttl">M/G/1 · ポラチェック–ヒンチン</div><div class="fx"><span class="hl">L<sub>q</sub></span> = ρ²(1+C<sub>s</sub>²)/(2(1−ρ))<br>L = ρ + L<sub>q</sub><br>W<sub>q</sub> = L<sub>q</sub>/λ</div><div class="note">C<sub>s</sub>²=1で M/M/1、=0で M/D/1（行列は半分！）。<b>ばらつきが待ちを生む</b>。</div>`,
+  mdc:`<div class="ttl">M/D/c · 一定サービス</div><div class="fx">サービス時間 = 1/μ（一定）<br><span class="hl">L<sub>q</sub></span> ≈ ½ · L<sub>q</sub><sup>(M/M/c)</sup><br>L = L<sub>q</sub> + a &nbsp; ( a=λ/μ )</div><div class="note">到着はランダムでも処理時間は<b>毎回一定</b>。ばらつきが無い分、待ちは指数サービスの<b>約半分</b>。c=1は厳密(P–K)、c≥2はAllen–Cunneen近似。</div>`};
+  return fx[model];}
+
+/* ===== function graphs (SVG) ===== */
+let convHist=[], respMetric="L";
+const CW=560, CH=230, PADL=46, PADR=14, PADT=14, PADB=34;
+const metaLabel={L:"L",Lq:"L_q",W:"W",Wq:"W_q",B:"B"};
+const metaName={L:"系内人数 L",Lq:"行列人数 L_q",W:"系内時間 W",Wq:"待ち時間 W_q",B:"呼損率 B"};
+function metricsFor(model){
+  if(model==="mmcc")return["B","L"];
+  return["L","Lq","W","Wq"];
+}
+function paramsAt(model,base,x){ // x = utilization ρ (per-server) for inf/k, or ρ=a/c for cc
+  const m=base.mu;
+  if(model==="mm1")return{lambda:x*m,mu:m,c:1,K:base.K,cs2:base.cs2};
+  if(model==="mmc")return{lambda:x*base.c*m,mu:m,c:base.c,K:base.K,cs2:base.cs2};
+  if(model==="mg1")return{lambda:x*m,mu:m,c:1,K:base.K,cs2:base.cs2};
+  if(model==="mm1k")return{lambda:x*m,mu:m,c:1,K:base.K,cs2:base.cs2};
+  if(model==="mmcc")return{lambda:x*base.c*m,mu:m,c:base.c,K:base.K,cs2:base.cs2};
+  if(model==="mdc")return{lambda:x*base.c*m,mu:m,c:base.c,K:base.K,cs2:base.cs2};
+}
+function getPn(model,p,r){
+  const{mu:m}=p,l=p.lambda;
+  if(model==="mm1"){if(r.rho>=1)return null;const rho=r.rho;let a=[];for(let n=0;n<=16;n++)a[n]=(1-rho)*Math.pow(rho,n);return{Pn:a,nmax:16};}
+  if(model==="mmc"){if(r.rho>=1)return null;const a=l/m,rr=r.rho,c=p.c;let s=0;for(let n=0;n<c;n++)s+=Math.pow(a,n)/fact(n);
+    const P0=1/(s+Math.pow(a,c)/fact(c)/(1-rr));let arr=[];const nm=Math.min(20,c+12);
+    for(let n=0;n<=nm;n++)arr[n]=n<=c?Math.pow(a,n)/fact(n)*P0:Math.pow(a,n)/(fact(c)*Math.pow(c,n-c))*P0;return{Pn:arr,nmax:nm,c};}
+  if(model==="mm1k"){const rho=r.rho,K=p.K;let arr=[];if(Math.abs(rho-1)<1e-9){for(let n=0;n<=K;n++)arr[n]=1/(K+1);}else{const P0=(1-rho)/(1-Math.pow(rho,K+1));for(let n=0;n<=K;n++)arr[n]=P0*Math.pow(rho,n);}return{Pn:arr,nmax:K,fin:true};}
+  if(model==="mmcc"){const a=l/m,c=p.c;let den=0;for(let n=0;n<=c;n++)den+=Math.pow(a,n)/fact(n);let arr=[];for(let n=0;n<=c;n++)arr[n]=(Math.pow(a,n)/fact(n))/den;return{Pn:arr,nmax:c,fin:true,busy:true};}
+  return null;
+}
+function axes(xmax,ymax,xlabel,ylabel,extra){
+  const X=v=>PADL+(CW-PADL-PADR)*(v/xmax), Y=v=>CH-PADB-(CH-PADB-PADT)*(Math.min(v,ymax)/ymax);
+  let g=`<line x1="${PADL}" y1="${CH-PADB}" x2="${CW-PADR}" y2="${CH-PADB}" stroke="var(--line)"/>`+
+        `<line x1="${PADL}" y1="${PADT}" x2="${PADL}" y2="${CH-PADB}" stroke="var(--line)"/>`;
+  for(let i=1;i<=4;i++){const yv=ymax*i/4;g+=`<line x1="${PADL}" y1="${Y(yv)}" x2="${CW-PADR}" y2="${Y(yv)}" stroke="var(--line-soft)" stroke-dasharray="2 5"/>`+
+    `<text x="${PADL-6}" y="${Y(yv)+3}" fill="var(--faint)" font-size="9.5" font-family="var(--mono,monospace)" text-anchor="end">${yv>=100?yv.toFixed(0):yv.toFixed(yv<10?1:0)}</text>`;}
+  const nx=xmax<=1.0001?5:4;
+  for(let i=0;i<=nx;i++){const xv=xmax*i/nx;g+=`<text x="${X(xv)}" y="${CH-PADB+16}" fill="var(--faint)" font-size="9.5" font-family="var(--mono,monospace)" text-anchor="middle">${xv.toFixed(xmax<=2?(xmax<=1?1:1):0)}</text>`;}
+  g+=`<text x="${(CW+PADL)/2}" y="${CH-4}" fill="var(--muted)" font-size="11" text-anchor="middle">${xlabel}</text>`;
+  g+=`<text x="14" y="${PADT+4}" fill="var(--muted)" font-size="11">${ylabel}</text>`;
+  if(extra)g+=extra;
+  return{g,X,Y};
+}
+function drawResponse(model,base,r){
+  const avail=metricsFor(model);if(!avail.includes(respMetric))respMetric=avail[0];
+  $("metsel").innerHTML=avail.map(k=>`<button data-m="${k}" class="${k===respMetric?'on':''}">${metaLabel[k].replace('_','')}</button>`).join("");
+  const inf=(model==="mm1"||model==="mmc"||model==="mg1"||model==="mdc");
+  const xmax=inf?1.0:2.0, xlabel=inf?"利用率 ρ"+(model==="mmc"?"（=a/c）":""):(model==="mmcc"?"負荷 ρ=a/c":"負荷 ρ=λ/μ");
+  // sample
+  let xs=[],ys=[];const hi=inf?0.985:2.0;
+  for(let i=0;i<=120;i++){const x=0.02+(hi-0.02)*i/120;const pp=paramsAt(model,base,x);const rr=compute(model,pp);
+    let v=rr[respMetric];xs.push(x);ys.push(v);}
+  // ymax: for infinite cap by value at x~0.9
+  let ymax;
+  if(respMetric==="B"){ymax=1;}
+  else if(inf){let y90=0;for(let i=0;i<xs.length;i++)if(xs[i]<=0.9)y90=ys[i];ymax=Math.max(1,y90*1.35);}
+  else{let mx=0;ys.forEach(v=>{if(isFinite(v))mx=Math.max(mx,v);});ymax=Math.max(1,mx*1.18);}
+  const{g,X,Y}=axes(xmax,ymax,xlabel,metaLabel[respMetric].replace('_',''),
+    inf?`<line x1="${PADL+(CW-PADL-PADR)*(1/xmax)}" y1="${PADT}" x2="${PADL+(CW-PADL-PADR)*(1/xmax)}" y2="${CH-PADB}" stroke="var(--coral)" stroke-dasharray="4 4" opacity="0.6"/><text x="${PADL+(CW-PADL-PADR)*(1/xmax)-4}" y="${PADT+10}" fill="var(--coral)" font-size="9.5" font-family="var(--mono,monospace)" text-anchor="end">ρ=1</text>`:"");
+  let path="";for(let i=0;i<xs.length;i++){const yv=isFinite(ys[i])?ys[i]:ymax*2;path+=(i?"L":"M")+X(xs[i]).toFixed(1)+" "+Y(yv).toFixed(1)+" ";}
+  // current point
+  const cx=r.rho, cy=r[respMetric];
+  let pt="";
+  if(isFinite(cx)&&cx<=xmax+0.001){const px=X(cx),py=Y(isFinite(cy)?cy:ymax);
+    pt=`<circle cx="${px}" cy="${py}" r="6" fill="var(--amber)" stroke="var(--ink)" stroke-width="2"/>`+
+       `<text x="${px}" y="${py-12}" fill="var(--amber)" font-size="11.5" font-family="var(--mono,monospace)" font-weight="700" text-anchor="middle">${metaLabel[respMetric].replace('_','')}=${fmt(cy)}</text>`;}
+  $("respSvg").innerHTML=`<svg viewBox="0 0 ${CW} ${CH}">${g}<path d="${path}" fill="none" stroke="var(--cyan)" stroke-width="2.5" stroke-linejoin="round"/>${pt}</svg>`;
+  $("respTitle").textContent=`応答曲線：${metaName[respMetric]} 対 負荷`;
+  $("respCap").innerHTML=inf?`負荷 ρ が <b>1 に近づくと急激に発散</b>します。現在の動作点（橙）は ρ=${fmt(r.rho)}。`:
+    (model==="mmcc"?`待ち室ゼロなので発散しません。負荷が増えるほど <b>呼損率 B</b> が上がります。`:`容量が有限なので発散しません。代わりに一部の到着を失います。`);
+}
+function drawSecond(model,p,r){
+  if(model==="mg1"){ // Cs² sensitivity
+    $("distTitle").textContent="変動 Cₛ² → 行列 L_q 感度";
+    const rho=r.rho;
+    if(rho>=1){$("distSvg").innerHTML=`<svg viewBox="0 0 ${CW} ${CH}"><text x="${CW/2}" y="${CH/2}" fill="var(--coral)" font-family="var(--mono,monospace)" font-size="14" text-anchor="middle">ρ≥1：過負荷（発散）</text></svg>`;$("distCap").innerHTML="";return;}
+    const xmax=4, ymax=Math.max(1,rho*rho*(1+xmax)/(2*(1-rho))*1.1);
+    const Xc=v=>PADL+(CW-PADL-PADR)*(v/xmax);
+    const{g,X,Y}=axes(xmax,ymax,"Cₛ²（サービス時間のばらつき）","L_q",
+      `<line x1="${Xc(1)}" y1="${PADT}" x2="${Xc(1)}" y2="${CH-PADB}" stroke="var(--line)" stroke-dasharray="4 4"/><text x="${Xc(1)+4}" y="${PADT+10}" fill="var(--faint)" font-size="9" font-family="var(--mono,monospace)">M/M/1</text><text x="${Xc(0)+4}" y="${CH-PADB-6}" fill="var(--faint)" font-size="9" font-family="var(--mono,monospace)">M/D/1</text>`);
+    let path="";for(let i=0;i<=80;i++){const cs=i/80*xmax,lq=rho*rho*(1+cs)/(2*(1-rho));path+=(i?"L":"M")+X(cs).toFixed(1)+" "+Y(lq).toFixed(1)+" ";}
+    const cs=p.cs2,lqN=rho*rho*(1+cs)/(2*(1-rho));
+    $("distSvg").innerHTML=`<svg viewBox="0 0 ${CW} ${CH}">${g}<path d="${path}" fill="none" stroke="var(--cyan)" stroke-width="2.5"/><circle cx="${X(cs)}" cy="${Y(lqN)}" r="6" fill="var(--amber)" stroke="var(--ink)" stroke-width="2"/><text x="${X(cs)}" y="${Y(lqN)-12}" fill="var(--amber)" font-size="11.5" font-family="var(--mono,monospace)" font-weight="700" text-anchor="middle">L_q=${fmt(lqN)}</text></svg>`;
+    $("distCap").innerHTML=`ばらつき Cₛ² が増えると待ちが増加。<b>一定(0)なら指数(1)の半分</b>です。`;
+    return;
+  }
+  if(model==="mdc"){
+    $("distTitle").textContent="M/D/c と M/M/c の比較（L_q）";
+    const xmax=1.0, Xc=v=>PADL+(CW-PADL-PADR)*(v/xmax);
+    let ym=0;const sM=[],sD=[];
+    for(let i=0;i<=100;i++){const x=0.02+0.95*i/100;const pp=paramsAt("mmc",p,x);
+      const rm=compute("mmc",pp),rd=compute("mdc",pp);sM.push([x,rm.Lq]);sD.push([x,rd.Lq]);if(x<=0.9)ym=Math.max(ym,rm.Lq);}
+    const ymax=Math.max(1,ym*1.2);
+    const{g,X,Y}=axes(xmax,ymax,"利用率 ρ=a/c","L_q",
+      `<line x1="${Xc(1)}" y1="${PADT}" x2="${Xc(1)}" y2="${CH-PADB}" stroke="var(--coral)" stroke-dasharray="4 4" opacity="0.6"/>`);
+    const mk=arr=>{let s="";arr.forEach((pt,i)=>{s+=(i?"L":"M")+X(pt[0]).toFixed(1)+" "+Y(pt[1]).toFixed(1)+" ";});return s;};
+    const cy=r.rho,cv=r.Lq;
+    const dot=(isFinite(cy)&&cy<=1)?`<circle cx="${X(cy)}" cy="${Y(Math.min(cv,ymax))}" r="6" fill="var(--amber)" stroke="var(--ink)" stroke-width="2"/>`:"";
+    $("distSvg").innerHTML=`<svg viewBox="0 0 ${CW} ${CH}">${g}
+      <path d="${mk(sM)}" fill="none" stroke="var(--cyan)" stroke-width="2.2"/>
+      <path d="${mk(sD)}" fill="none" stroke="var(--amber)" stroke-width="2.6"/>${dot}
+      <text x="${CW-PADR-4}" y="${PADT+12}" fill="var(--cyan)" font-size="10.5" font-family="var(--mono,monospace)" text-anchor="end">M/M/c（指数）</text>
+      <text x="${CW-PADR-4}" y="${PADT+26}" fill="var(--amber)" font-size="10.5" font-family="var(--mono,monospace)" text-anchor="end">M/D/c（一定）</text></svg>`;
+    $("distCap").innerHTML=`同じ負荷でも処理時間が<b>一定</b>だと行列（橙）は指数（シアン）の<b>約半分</b>。c=${p.c}${p.c>1?'（近似）':'（厳密）'}。`;
+    return;
+  }
+  $("distTitle").textContent="系内人数の分布 Pₙ";
+  const d=getPn(model,p,r);
+  if(!d){$("distSvg").innerHTML=`<svg viewBox="0 0 ${CW} ${CH}"><text x="${CW/2}" y="${CH/2}" fill="var(--coral)" font-family="var(--mono,monospace)" font-size="13" text-anchor="middle">過負荷（ρ≥1）：定常分布なし</text></svg>`;$("distCap").innerHTML="";return;}
+  const Pn=d.Pn,n=Pn.length,maxP=Math.max(...Pn,0.001);
+  const x0=PADL,x1=CW-PADR,bw=(x1-x0)/n;
+  let bars="";
+  for(let i=0;i<n;i++){const h=(CH-PADB-PADT)*(Pn[i]/maxP),x=x0+i*bw,y=CH-PADB-h;
+    const col=i===0?"var(--amber)":"var(--cyan)";
+    bars+=`<rect x="${(x+bw*0.13).toFixed(1)}" y="${y.toFixed(1)}" width="${(bw*0.74).toFixed(1)}" height="${Math.max(0,h).toFixed(1)}" rx="2" fill="${col}" opacity="${i===0?1:.82}"/>`;
+    if(n<=22)bars+=`<text x="${(x+bw/2).toFixed(1)}" y="${CH-PADB+15}" fill="var(--faint)" font-size="9" font-family="var(--mono,monospace)" text-anchor="middle">${i}</text>`;}
+  bars+=`<line x1="${x0}" y1="${CH-PADB}" x2="${x1}" y2="${CH-PADB}" stroke="var(--line)"/>`;
+  $("distSvg").innerHTML=`<svg viewBox="0 0 ${CW} ${CH}">${bars}<text x="${CW/2}" y="${CH-4}" fill="var(--muted)" font-size="11" text-anchor="middle">${d.busy?"n（使用中の窓口数）":"n（系内人数）"}</text></svg>`;
+  $("distCap").innerHTML=d.fin?`容量内（n≤${d.nmax}）に確率が収まります。${d.busy?"全窓口埋まる確率が呼損率 B。":"右端があふれ確率。"}`:`<b>n=0（空き）</b>が橙。右に裾を引くほど混雑しています。`;
+}
+function drawConv(){
+  const ana=lastR&&isFinite(lastR.L)?lastR.L:null;
+  const clk=convHist.length?convHist[convHist.length-1].t:0;
+  const xmax=Math.max(8,clk*1.02);
+  let obs=0;convHist.forEach(s=>obs=Math.max(obs,s.L));
+  const ymax=Math.max(1,(ana?Math.max(ana,obs):obs)*1.25);
+  const X=v=>PADL+(CW-PADL-PADR)*(v/xmax),Y=v=>CH-PADB-(CH-PADB-PADT)*(Math.min(v,ymax)/ymax);
+  const{g}=axes(xmax,ymax,"シミュレーション時刻 t","L");
+  let ref="";
+  if(ana!=null)ref=`<line x1="${PADL}" y1="${Y(ana)}" x2="${CW-PADR}" y2="${Y(ana)}" stroke="var(--amber)" stroke-width="2" stroke-dasharray="6 5"/><text x="${CW-PADR}" y="${Y(ana)-6}" fill="var(--amber)" font-size="10.5" font-family="var(--mono,monospace)" text-anchor="end">理論 L=${fmt(ana)}</text>`;
+  let path="";convHist.forEach((s,i)=>{path+=(i?"L":"M")+X(s.t).toFixed(1)+" "+Y(s.L).toFixed(1)+" ";});
+  const last=convHist.length?convHist[convHist.length-1]:null;
+  const dot=last?`<circle cx="${X(last.t)}" cy="${Y(last.L)}" r="4.5" fill="var(--cyan)"/>`:"";
+  $("convSvg").innerHTML=`<svg viewBox="0 0 ${CW} ${CH}">${g}${ref}<path d="${path}" fill="none" stroke="var(--cyan)" stroke-width="2.2"/>${dot}</svg>`;
+}
+
+let current="mm1";
+function readParams(){return{lambda:+$("lambda").value,mu:+$("mu").value,c:+$("cc").value,K:+$("KK").value,cs2:+$("cs2").value};}
+function renderChips(r){$("chips").innerHTML=r.metrics.map(d=>`<div class="chip ${d.cls} ${d.over?'over':''}">
+  <div class="k">${d.k.replace(/_(\w+)/,'<span class="sub">$1</span>')} <span class="sub" style="color:var(--faint)">${d.sub}</span></div>
+  <div class="v">${fmt(d.v,d.v<10?2:1)}</div><div class="u">${d.u||''}</div></div>`).join("");}
+let lastR=null;
+function update(){const p=readParams(),r=compute(current,p);lastR=r;renderChips(r);$("formula").innerHTML=formulaHTML(current,r);drawResponse(current,p,r);drawSecond(current,p,r);drawConv();sim.configure(p,r);}
+$("metsel").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;respMetric=b.dataset.m;update();});
+function setControls(m){$("c-c").classList.toggle("hide",!(m==="mmc"||m==="mmcc"||m==="mdc"));$("c-K").classList.toggle("hide",m!=="mm1k");$("c-cs2").classList.toggle("hide",m!=="mg1");}
+document.querySelectorAll(".mbtn").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll(".mbtn").forEach(x=>x.setAttribute("aria-selected","false"));
+  b.setAttribute("aria-selected","true");current=b.dataset.model;setControls(current);update();sim.reset();}));
+[["lambda","v-lambda",2],["mu","v-mu",2],["cc","v-c",0],["KK","v-K",0],["cs2","v-cs2",2]].forEach(([id,vid,d])=>
+  $(id).addEventListener("input",()=>{$(vid).textContent=(+$(id).value).toFixed(d);update();}));
+
+/* ===== animated canvas simulation ===== */
+const sim=(function(){
+  const cv=$("cv"),ctx=cv.getContext("2d");
+  if(!ctx.roundRect){ctx.roundRect=function(x,y,w,h,r){this.beginPath();this.moveTo(x+r,y);this.arcTo(x+w,y,x+w,y+h,r);this.arcTo(x+w,y+h,x,y+h,r);this.arcTo(x,y+h,x,y,r);this.arcTo(x,y,x+w,y,r);this.closePath();return this;};}
+  let p=null,ana=null,model="mm1",running=false,raf=null;
+  let clock=0,nextArr=0,servers=[],queue=[],people=[],floats=[],nextId=1;
+  let areaL=0,served=0,blocked=0,lastWall=0,SPEED=2,convTick=0;
+  let cap=Infinity,nServers=1;
+  let W=900,H=380,DPR=1,geo={};
+  const reduce=matchMedia("(prefers-reduced-motion:reduce)").matches;
+
+  /* random */
+  function expS(rate){return -Math.log(1-Math.random())/rate;}
+  let spare=null;
+  function gauss(){if(spare!=null){const s=spare;spare=null;return s;}let u,v,s;do{u=2*Math.random()-1;v=2*Math.random()-1;s=u*u+v*v;}while(s>=1||s===0);const f=Math.sqrt(-2*Math.log(s)/s);spare=v*f;return u*f;}
+  function gam(k){if(k<1){return gam(1+k)*Math.pow(Math.random(),1/k);}const d=k-1/3,c=1/Math.sqrt(9*d);while(true){let x,v;do{x=gauss();v=1+c*x;}while(v<=0);v=v*v*v;const u=Math.random();if(u<1-0.0331*x*x*x*x)return d*v;if(Math.log(u)<0.5*x*x+d*(1-v+Math.log(v)))return d*v;}}
+  function svcS(){const m=p.mu;if(model==="mdc")return 1/m;if(model==="mg1"){const cs2=p.cs2;if(cs2<=1e-6)return 1/m;const k=1/cs2;return gam(k)/(m*k);}return expS(m);}
+
+  function inSystem(){let n=queue.length;for(const s of servers)if(s)n++;return n;}
+
+  function resize(){
+    const cssW=cv.clientWidth||900;DPR=Math.min(2,window.devicePixelRatio||1);
+    H=Math.max(360,150+nServers*40);if(H>470)H=470;
+    W=cssW;cv.style.height=H+"px";cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);
+    ctx.setTransform(DPR,0,0,DPR,0,0);layout();
+  }
+  function layout(){
+    geo.entranceX=46;geo.entranceY=H*0.5;
+    geo.exitX=W-40;
+    geo.winX=W*0.66;geo.winW=Math.min(78,(W*0.26));
+    geo.qFront=geo.winX-58;geo.qY=H*0.5;geo.qGap=30;
+    geo.svBoxes=[];
+    const gap=Math.min(20,(H-60)/Math.max(1,nServers)-30);
+    const totalH=nServers*34+(nServers-1)*Math.max(8,gap);
+    const startY=(H-totalH)/2;
+    for(let i=0;i<nServers;i++){const y=startY+i*(34+Math.max(8,gap))+17;
+      geo.svBoxes.push({x:geo.winX,y,spotX:geo.winX-6,spotY:y});}
+  }
+
+  function configure(pp,rr){p=pp;ana=rr;model=current;nServers=(model==="mmc"||model==="mmcc"||model==="mdc")?p.c:1;
+    cap=(model==="mm1k")?p.K:(model==="mmcc")?nServers:Infinity;resize();if(!running)draw();}
+  function reset(){cancelAnimationFrame(raf);running=false;$("btnPlay").textContent="▶ 再生";
+    clock=0;nextArr=expS(p.lambda);servers=new Array(nServers).fill(null);queue=[];people=[];floats=[];nextId=1;
+    areaL=0;served=0;blocked=0;convHist=[];
+    $("conv").innerHTML='▶ 再生すると、ランダムな到着から行列ができ、実測 L が理論値へ近づきます。';
+    draw();if(typeof drawConv==="function")drawConv();}
+
+  function newCust(){return{id:nextId++,arr:clock,state:"in",x:geo.entranceX,y:geo.entranceY+(Math.random()*16-8),
+    hue:Math.floor(Math.random()*360),svcStart:0,svcDur:0,svcEnd:0,si:-1,bob:Math.random()*6};}
+  function assign(i,c){c.state="service";c.si=i;c.svcStart=clock;c.svcDur=svcS();c.svcEnd=clock+c.svcDur;servers[i]=c;}
+  function dispatch(){for(let i=0;i<nServers;i++)if(!servers[i]&&queue.length)assign(i,queue.shift());}
+  function arrival(){
+    if(inSystem()>=cap){blocked++;const c=newCust();c.state="block";people.push(c);
+      floats.push({x:geo.entranceX,y:geo.entranceY-22,txt:model==="mmcc"?"呼損":"満員",col:"#ff5d6c",life:1});
+    }else{const c=newCust();const f=servers.findIndex(s=>!s);if(f>=0)assign(f,c);else{c.state="queue";queue.push(c);}people.push(c);}
+    nextArr=clock+expS(p.lambda);
+  }
+  function depart(i){const c=servers[i];served++;servers[i]=null;c.state="out";c.outAt=clock;
+    floats.push({x:geo.exitX-10,y:c.y-20,txt:"✓",col:"#5fe39a",life:1});dispatch();}
+
+  function step(dt){let remain=dt;let guard=0;
+    while(remain>1e-9&&guard++<5000){let tN=clock+remain,ev=null,idx=-1;
+      if(nextArr<tN){tN=nextArr;ev="arr";}
+      for(let i=0;i<nServers;i++){const s=servers[i];if(s&&s.svcEnd<tN){tN=s.svcEnd;ev="dep";idx=i;}}
+      const adv=tN-clock;areaL+=inSystem()*adv;clock=tN;remain-=adv;
+      if(ev==="arr")arrival();else if(ev==="dep"){depart(idx);}else break;}
+    dispatch();
+  }
+
+  /* ---- drawing ---- */
+  function hsl(h,s,l,a){return`hsla(${h},${s}%,${l}%,${a==null?1:a})`;}
+  function waitColor(c){const w=clock-c.arr;const t=Math.min(1,w/6);
+    // cyan -> amber -> coral as waiting grows
+    if(t<0.5){const k=t/0.5;return mix("#42e2d0","#ffb347",k);}return mix("#ffb347","#ff5d6c",(t-0.5)/0.5);}
+  function mix(a,b,t){const pa=hx(a),pb=hx(b);return`rgb(${Math.round(lerp(pa[0],pb[0],t))},${Math.round(lerp(pa[1],pb[1],t))},${Math.round(lerp(pa[2],pb[2],t))})`;}
+  function hx(s){return[parseInt(s.slice(1,3),16),parseInt(s.slice(3,5),16),parseInt(s.slice(5,7),16)];}
+
+  function person(x,y,col,mood,scale){
+    scale=scale||1;ctx.save();ctx.translate(x,y);ctx.scale(scale,scale);
+    ctx.fillStyle="rgba(0,0,0,.28)";ctx.beginPath();ctx.ellipse(0,13,10,3.2,0,0,7);ctx.fill();
+    ctx.fillStyle=col;ctx.roundRect(-9,-2,18,16,6);ctx.fill();           // body
+    ctx.fillStyle="#f6e7d4";ctx.beginPath();ctx.arc(0,-9,7.2,0,7);ctx.fill(); // head
+    ctx.fillStyle="#23284a";                                            // eyes
+    ctx.beginPath();ctx.arc(-2.6,-9.5,1.05,0,7);ctx.arc(2.6,-9.5,1.05,0,7);ctx.fill();
+    ctx.strokeStyle="#23284a";ctx.lineWidth=1.1;ctx.beginPath();         // mouth
+    if(mood==="happy"){ctx.arc(0,-6.5,2.6,0.15*Math.PI,0.85*Math.PI);}
+    else if(mood==="sad"){ctx.arc(0,-4,2.6,1.15*Math.PI,1.85*Math.PI);}
+    else{ctx.moveTo(-2,-6.4);ctx.lineTo(2,-6.4);}
+    ctx.stroke();ctx.restore();
+  }
+  function task(x,y,hue,prog){ // shrinking parcel + progress ring above head
+    const r=11;ctx.save();ctx.translate(x,y-9);
+    ctx.strokeStyle="rgba(255,255,255,.14)";ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,0,r,0,7);ctx.stroke();
+    ctx.strokeStyle="#ffb347";ctx.lineCap="round";ctx.beginPath();ctx.arc(0,0,r,-Math.PI/2,-Math.PI/2+prog*2*Math.PI);ctx.stroke();
+    const sz=Math.max(1.5,(1-prog)*7);ctx.fillStyle=hsl(hue,70,60);ctx.translate(0,-20);ctx.roundRect(-sz,-sz,sz*2,sz*2,1.5);ctx.fill();
+    ctx.restore();
+  }
+  function clerk(x,y,busy){ctx.save();ctx.translate(x,y);
+    ctx.fillStyle="rgba(0,0,0,.25)";ctx.beginPath();ctx.ellipse(0,11,8,2.6,0,0,7);ctx.fill();
+    ctx.fillStyle=busy?"#3a6ea5":"#39406e";ctx.roundRect(-7,-2,14,13,5);ctx.fill();
+    ctx.fillStyle="#f6e7d4";ctx.beginPath();ctx.arc(0,-8,6,0,7);ctx.fill();ctx.restore();}
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    // floor band
+    ctx.fillStyle="rgba(120,140,230,.04)";ctx.fillRect(0,H*0.5-2,W,4);
+    // entrance
+    ctx.strokeStyle="#2a3266";ctx.lineWidth=2;ctx.roundRect(geo.entranceX-26,geo.entranceY-34,30,68,8);ctx.stroke();
+    ctx.fillStyle="#5b639c";ctx.font="600 11px var(--mono,monospace)";ctx.textAlign="center";
+    ctx.fillText("到着 λ",geo.entranceX-11,geo.entranceY-42);
+    ctx.fillStyle="#42e2d0";ctx.beginPath();ctx.moveTo(geo.entranceX+8,geo.entranceY);ctx.lineTo(geo.entranceX+18,geo.entranceY-5);ctx.lineTo(geo.entranceX+18,geo.entranceY+5);ctx.fill();
+    // queue guide
+    ctx.strokeStyle="rgba(66,226,208,.18)";ctx.setLineDash([5,7]);ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(geo.entranceX+24,geo.qY);ctx.lineTo(geo.qFront+6,geo.qY);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle="#5b639c";ctx.fillText("行列（待ち）",(geo.entranceX+geo.qFront)/2,geo.qY-26);
+    // windows
+    geo.svBoxes.forEach((b,i)=>{const busy=!!servers[i];
+      if(busy){ctx.save();ctx.shadowColor="#ffb347";ctx.shadowBlur=18;}
+      ctx.strokeStyle=busy?"#ffb347":"#2a3266";ctx.lineWidth=2;ctx.fillStyle=busy?"rgba(255,179,71,.10)":"rgba(120,140,230,.03)";
+      ctx.roundRect(b.x-2,b.y-17,geo.winW,34,8);ctx.fill();ctx.stroke();if(busy)ctx.restore();
+      clerk(b.x+geo.winW-16,b.y,busy);
+      ctx.fillStyle=busy?"#ffb347":"#5b639c";ctx.font="600 10px var(--mono,monospace)";ctx.textAlign="left";
+      ctx.fillText("窓口"+(i+1),b.x+2,b.y-21);ctx.textAlign="center";});
+    // exit
+    ctx.fillStyle="#5b639c";ctx.fillText("完了",geo.exitX,geo.entranceY-30);
+    ctx.fillStyle="#5fe39a";ctx.beginPath();ctx.moveTo(geo.exitX+6,geo.entranceY-2);ctx.lineTo(geo.exitX+16,geo.entranceY-7);ctx.lineTo(geo.exitX+16,geo.entranceY+3);ctx.fill();
+
+    // targets
+    const lf=reduce?1:0.2;
+    let qShown=0;const qMax=14;
+    people.forEach(c=>{
+      let tx=c.x,ty=c.y;
+      if(c.state==="queue"){const idx=queue.indexOf(c);if(idx<qMax){tx=geo.qFront-idx*geo.qGap;ty=geo.qY;}else{tx=geo.qFront-qMax*geo.qGap;ty=geo.qY;}}
+      else if(c.state==="service"){const b=geo.svBoxes[c.si];tx=b.spotX-4;ty=b.spotY;}
+      else if(c.state==="out"){tx=geo.exitX+30;ty=c.y;}
+      else if(c.state==="block"){tx=geo.entranceX-40;ty=c.y-30;}
+      c.x=lerp(c.x,tx,lf);c.y=lerp(c.y,ty,lf);
+    });
+    // draw people (queue beyond qMax collapsed)
+    people.forEach(c=>{
+      if(c.state==="queue"){const idx=queue.indexOf(c);if(idx>=qMax)return;
+        person(c.x,c.y,waitColor(c),(clock-c.arr)>4?"sad":"wait",1);}
+      else if(c.state==="service"){const prog=Math.min(1,(clock-c.svcStart)/(c.svcDur||1));
+        person(c.x,c.y,"#ffb347","wait",1);task(c.x,c.y,c.hue,prog);}
+      else if(c.state==="out"){const a=Math.max(0,1-(c.x-geo.exitX)/40);ctx.globalAlpha=Math.max(0.1,a);person(c.x,c.y,"#5fe39a","happy",1);ctx.globalAlpha=1;}
+      else if(c.state==="block"){const a=Math.max(0,(c.y-(geo.entranceY-60))/30);ctx.globalAlpha=Math.max(0,a);person(c.x,c.y,"#ff5d6c","sad",1);ctx.globalAlpha=1;}
+      else person(c.x,c.y,"#42e2d0","wait",1);
+    });
+    // overflow badge
+    if(queue.length>qMax){ctx.fillStyle="#ff5d6c";ctx.font="700 13px var(--mono,monospace)";ctx.textAlign="left";
+      ctx.fillText("+"+(queue.length-qMax)+" 待ち",geo.qFront-qMax*geo.qGap-46,geo.qY+5);ctx.textAlign="center";}
+    // floats
+    floats.forEach(f=>{ctx.globalAlpha=Math.max(0,f.life);ctx.fillStyle=f.col;ctx.font="700 15px var(--sans,sans-serif)";ctx.fillText(f.txt,f.x,f.y);ctx.globalAlpha=1;});
+  }
+
+  function cleanup(){
+    people=people.filter(c=>{
+      if(c.state==="out"&&c.x>geo.exitX+26)return false;
+      if(c.state==="block"&&c.y<geo.entranceY-58)return false;
+      return true;});
+    floats=floats.filter(f=>{f.y-=0.6;f.life-=0.012;return f.life>0;});
+    if(people.length>240)people=people.slice(-240);
+  }
+
+  function frame(ts){if(!running)return;if(!lastWall)lastWall=ts;let dt=(ts-lastWall)/1000;lastWall=ts;if(dt>0.1)dt=0.1;
+    step(dt*SPEED);cleanup();draw();
+    const Lsim=clock>0?areaL/clock:0;
+    if(convHist.length===0||clock-convHist[convHist.length-1].t>0.08){convHist.push({t:clock,L:Lsim});
+      if(convHist.length>500)convHist=convHist.filter((_,i)=>i%2===0||i>convHist.length-60);}
+    if((convTick=(convTick+1)%3)===0)drawConv();
+    // update conv + chips' live tie-in
+    if(isFinite(ana.L)&&clock>5){const err=Math.abs(Lsim-ana.L)/(ana.L||1)*100;
+      $("conv").innerHTML=`実測 <b>L=${fmt(Lsim)}</b> ／ 理論 L=${fmt(ana.L)} → 誤差 ${err<999?err.toFixed(0):'∞'}%。`+(err<12?' 乱数の海から平均が立ち上がりました（リトルの法則）。':' 時間を進めるほど一致します。')+` ｜ 処理 ${served}・拒否 ${blocked}・t=${Math.floor(clock)}`;
+    }else if(!isFinite(ana.L)){$("conv").innerHTML=`理論 L=∞（過負荷）。シミュレーションでも行列が際限なく伸びます。実測 L=${fmt(Lsim)} ｜ t=${Math.floor(clock)}`;}
+    raf=requestAnimationFrame(frame);
+  }
+  function play(){if(running){running=false;cancelAnimationFrame(raf);$("btnPlay").textContent="▶ 再生";return;}
+    running=true;lastWall=0;$("btnPlay").textContent="⏸ 一時停止";raf=requestAnimationFrame(frame);}
+
+  $("btnPlay").addEventListener("click",play);
+  $("btnReset").addEventListener("click",()=>{const w=running;running=false;cancelAnimationFrame(raf);reset();if(w)play();});
+  $("speed").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;SPEED=+b.dataset.s;
+    document.querySelectorAll("#speed button").forEach(x=>x.classList.toggle("on",x===b));});
+  let rt;window.addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(()=>{resize();draw();},120);});
+
+  return{configure,reset,play};
+})();
+
+setControls(current);update();sim.reset();
+</script>
+</body>
+</html>
