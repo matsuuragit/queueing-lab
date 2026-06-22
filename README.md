@@ -2,12 +2,12 @@
 
 「待ち行列ラボ」は、待ち行列理論（Queueing Theory）における様々なモデルを視覚的にシミュレーションし、グラフィカルに理解するためのWebアプリケーションです。
 
-単一のHTMLファイル（`queueing_lab.html`）で構成されており、ブラウザで開くだけで即座に動作します。
+単一のHTMLファイル（`index.html`）で構成されており、ブラウザで開くだけで即座に動作します。
 
 ## 🚀 デモ (GitHub Pages)
 
 以下のリンクから実際に動作するシミュレーターをお試しいただけます：
-👉 **[待ち行列ラボ デモはこちら](https://matsuuragit.github.io/queueing-lab/queueing_lab.html)**
+👉 **[待ち行列ラボ デモはこちら](https://matsuuragit.github.io/queueing-lab/)**
 
 ---
 
@@ -37,7 +37,7 @@
 
 ```text
 queueing_lab/
-├── queueing_lab.html   # アプリケーション本体（HTML/CSS/JS一体型）
+├── index.html          # アプリケーション本体（HTML/CSS/JS一体型）
 ├── README.md           # 本ファイル
 └── .gitignore          # Git管理対象外設定
 ```
@@ -46,8 +46,8 @@ queueing_lab/
 
 ## 💻 ローカルでの実行方法
 
-1. このリポジトリをクローンするか、`queueing_lab.html` をローカルPCにダウンロードします。
-2. `queueing_lab.html` をお好みのブラウザ（Google Chrome, Firefox, Microsoft Edge, Safari等）でダブルクリックして開きます。
+1. このリポジトリをクローンするか、`index.html` をローカルPCにダウンロードします。
+2. `index.html` をお好みのブラウザ（Google Chrome, Firefox, Microsoft Edge, Safari等）でダブルクリックして開きます。
 3. ローカルサーバーを起動する必要はなく、オフラインでも完全に動作します。
 
 ---
